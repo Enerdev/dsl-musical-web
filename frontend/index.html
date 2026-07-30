@@ -17,6 +17,11 @@
     --term-text:#d9e6d0;
     --err:#e0645a;
     --ok:#7fbf7f;
+    --c-nota:#c99a3a;
+    --c-bloque:#6d93b8;
+    --c-decl:#7fae6a;
+    --c-asig:#b07cc6;
+    --c-io:#4fb3a9;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -31,126 +36,69 @@
     border-bottom:1px solid var(--line);
     background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);
   }
-  .title-row{
-    display:flex;
-    align-items:baseline;
-    gap:14px;
-    flex-wrap:wrap;
-  }
-  h1{
-    margin:0;
-    font-size:26px;
-    font-weight:400;
-    letter-spacing:0.2px;
-    color:var(--ink);
-  }
+  .title-row{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  h1{ margin:0; font-size:26px; font-weight:400; letter-spacing:0.2px; color:var(--ink); }
   .tag{
-    font-family:"Courier New",monospace;
-    font-size:12px;
-    color:var(--gold-dim);
-    border:1px solid var(--gold-dim);
-    padding:2px 8px;
-    border-radius:2px;
-    text-transform:uppercase;
-    letter-spacing:1px;
+    font-family:"Courier New",monospace; font-size:12px; color:var(--gold-dim);
+    border:1px solid var(--gold-dim); padding:2px 8px; border-radius:2px;
+    text-transform:uppercase; letter-spacing:1px;
   }
-  .staff{
-    margin-top:16px;
-    width:100%;
-    height:26px;
-    display:block;
-  }
+  .staff{ margin-top:16px; width:100%; height:26px; display:block; }
   .staff line{ stroke:var(--line); stroke-width:1; }
   .staff circle{ fill:var(--gold); }
-  main{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:0;
-    min-height:calc(100vh - 132px);
-  }
-  @media (max-width:840px){
-    main{ grid-template-columns:1fr; }
-  }
-  section{
-    display:flex;
-    flex-direction:column;
-    min-height:420px;
-  }
+  main{ display:grid; grid-template-columns:1fr 1fr; gap:0; min-height:calc(100vh - 132px); }
+  @media (max-width:840px){ main{ grid-template-columns:1fr; } }
+  section{ display:flex; flex-direction:column; min-height:420px; }
   .pane-head{
-    font-family:"Courier New",monospace;
-    font-size:11px;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-    color:var(--ink-2);
-    padding:10px 20px;
-    border-bottom:1px solid var(--line);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+    font-family:"Courier New",monospace; font-size:11px; letter-spacing:1.5px;
+    text-transform:uppercase; color:var(--ink-2); padding:10px 20px;
+    border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:10px;
   }
+  .pane-head .right{ display:flex; align-items:center; gap:10px; }
+
+  .editor-wrap{ position:relative; flex:1; background:var(--paper); border-right:1px solid var(--line); overflow:hidden; }
+  .highlight-layer{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+  .error-line{ position:absolute; left:0; right:0; background:rgba(224,100,90,0.16); border-left:3px solid var(--err); }
   #editor{
-    flex:1;
-    resize:none;
-    border:none;
-    outline:none;
-    padding:20px;
-    font-family:"Courier New",Menlo,monospace;
-    font-size:14px;
-    line-height:1.6;
-    background:var(--paper);
-    color:var(--ink);
-    border-right:1px solid var(--line);
+    position:relative; z-index:1; width:100%; height:100%; resize:none; border:none; outline:none;
+    padding:20px; font-family:"Courier New",Menlo,monospace; font-size:14px; line-height:1.6;
+    background:transparent; color:var(--ink);
   }
-  .console-wrap{
-    flex:1;
-    background:var(--term-bg);
-    color:var(--term-text);
-    overflow-y:auto;
+
+  .console-wrap{ flex:1; background:var(--term-bg); color:var(--term-text); overflow-y:auto; }
+  #consola{ margin:0; padding:20px; font-family:"Courier New",Menlo,monospace; font-size:12.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+
+  .run-btn, .ghost-btn{
+    font-family:"Courier New",monospace; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+    padding:6px 14px; cursor:pointer; border-radius:2px;
   }
-  #consola{
-    margin:0;
-    padding:20px;
-    font-family:"Courier New",Menlo,monospace;
-    font-size:12.5px;
-    line-height:1.55;
-    white-space:pre-wrap;
-    word-break:break-word;
-  }
-  .run-btn{
-    font-family:"Courier New",monospace;
-    font-size:12px;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    background:var(--ink);
-    color:var(--paper);
-    border:1px solid var(--ink);
-    padding:6px 14px;
-    cursor:pointer;
-    border-radius:2px;
-  }
+  .run-btn{ background:var(--ink); color:var(--paper); border:1px solid var(--ink); }
   .run-btn:hover{ background:var(--gold-dim); border-color:var(--gold-dim); }
   .run-btn:disabled{ opacity:0.5; cursor:default; }
-  .run-btn:focus-visible, #editor:focus-visible{
-    outline:2px solid var(--gold);
-    outline-offset:2px;
-  }
-  .status{
-    font-family:"Courier New",monospace;
-    font-size:11px;
-    color:var(--ink-2);
-  }
+  .ghost-btn{ background:transparent; color:var(--term-text); border:1px solid var(--term-text); display:none; }
+  .ghost-btn:hover{ background:rgba(217,230,208,0.1); }
+  .run-btn:focus-visible, .ghost-btn:focus-visible, #editor:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+  .status{ font-family:"Courier New",monospace; font-size:11px; color:var(--ink-2); }
   .status.err{ color:var(--err); }
   .status.ok{ color:var(--gold-dim); }
-  footer{
-    padding:12px 32px;
-    border-top:1px solid var(--line);
-    font-family:"Courier New",monospace;
-    font-size:11px;
-    color:var(--ink-2);
-    background:var(--paper);
-  }
+
+  footer{ padding:12px 32px; border-top:1px solid var(--line); font-family:"Courier New",monospace; font-size:11px; color:var(--ink-2); background:var(--paper); }
+
+  /* Arbol AST */
+  #astView{ display:none; padding:16px 20px; font-family:"Courier New",Menlo,monospace; font-size:12.5px; }
+  #astView summary{ cursor:pointer; padding:2px 0; }
+  #astView summary::marker{ color:var(--term-text); }
+  .ast-children{ margin-left:16px; border-left:1px dashed rgba(217,230,208,0.25); padding-left:10px; }
+  .ast-leaf{ padding:2px 0 2px 4px; }
+  .ast-nota{ color:var(--c-nota); }
+  .ast-bloque{ color:var(--c-bloque); font-weight:bold; }
+  .ast-decl{ color:var(--c-decl); }
+  .ast-asig{ color:var(--c-asig); }
+  .ast-io{ color:var(--c-io); }
+
   @media (prefers-reduced-motion:no-preference){
-    .run-btn{ transition:background 0.15s ease, border-color 0.15s ease; }
+    .run-btn, .ghost-btn{ transition:background 0.15s ease, border-color 0.15s ease; }
   }
 </style>
 </head>
@@ -181,7 +129,9 @@
       <span>Codigo .mus</span>
       <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
     </div>
-    <textarea id="editor" spellcheck="false">HOJA A4
+    <div class="editor-wrap">
+      <div class="highlight-layer" id="highlightLayer"></div>
+      <textarea id="editor" spellcheck="false">HOJA A4
 TITULO "Cancion Facil"
 AUTOR "Emerson"
 
@@ -202,15 +152,20 @@ RE:NEGRA |
 
 SOL:BLANCA |
 </textarea>
+    </div>
   </section>
 
   <section>
     <div class="pane-head">
       <span>Consola</span>
-      <span class="status" id="estado">Listo</span>
+      <div class="right">
+        <button class="ghost-btn" id="btnAst">Ver arbol AST</button>
+        <span class="status" id="estado">Listo</span>
+      </div>
     </div>
     <div class="console-wrap">
       <pre id="consola">Escribe tu codigo y presiona Compilar.</pre>
+      <div id="astView"></div>
     </div>
   </section>
 </main>
@@ -220,14 +175,122 @@ SOL:BLANCA |
 </footer>
 
 <script>
-  // Reemplaza esto por la URL real de tu backend en Railway
   const BACKEND_URL = "https://dsl-musical-web.onrender.com/compilar";
 
   const editor = document.getElementById('editor');
+  const highlightLayer = document.getElementById('highlightLayer');
   const consola = document.getElementById('consola');
+  const astView = document.getElementById('astView');
   const estado = document.getElementById('estado');
   const btn = document.getElementById('btnCompilar');
+  const btnAst = document.getElementById('btnAst');
 
+  let arbolActual = null;
+  let mostrandoAst = false;
+
+  // ---------- Resaltado de lineas con error ----------
+  function extraerLineasError(output) {
+    const lineas = new Set();
+    const reBracket = /\[ERROR (?:SINT|SEMANTICO) L(\d+)\]/g;
+    let m;
+    while ((m = reBracket.exec(output)) !== null) lineas.add(parseInt(m[1], 10));
+    const reLex = /^\s*(\d+)\s+\S+\s+\S+.*ERROR LEXICO/gm;
+    while ((m = reLex.exec(output)) !== null) lineas.add(parseInt(m[1], 10));
+    return [...lineas].sort((a, b) => a - b);
+  }
+
+  function actualizarResaltado(lineas) {
+    highlightLayer.innerHTML = '';
+    if (!lineas.length) return;
+    const cs = getComputedStyle(editor);
+    const lineHeight = parseFloat(cs.lineHeight) || 22.4;
+    const paddingTop = parseFloat(cs.paddingTop) || 20;
+    for (const n of lineas) {
+      const div = document.createElement('div');
+      div.className = 'error-line';
+      div.style.top = (paddingTop + (n - 1) * lineHeight) + 'px';
+      div.style.height = lineHeight + 'px';
+      highlightLayer.appendChild(div);
+    }
+    sincronizarScroll();
+    const cs2 = getComputedStyle(editor);
+    const lh = parseFloat(cs2.lineHeight) || 22.4;
+    const pt = parseFloat(cs2.paddingTop) || 20;
+    editor.scrollTop = Math.max(0, pt + (lineas[0] - 1) * lh - editor.clientHeight / 2);
+  }
+
+  function sincronizarScroll() {
+    highlightLayer.style.transform = 'translateY(' + (-editor.scrollTop) + 'px)';
+  }
+  editor.addEventListener('scroll', sincronizarScroll);
+
+  // ---------- Arbol AST ----------
+  function parsearAST(output) {
+    const marcador = "AST generado:";
+    const idx = output.indexOf(marcador);
+    if (idx === -1) return null;
+    let resto = output.slice(idx + marcador.length);
+    const finIdx = resto.indexOf("==============================================================================");
+    if (finIdx !== -1) resto = resto.slice(0, finIdx);
+    const lineasRaw = resto.split("\n").filter(l => l.trim().length > 0);
+    const raiz = { texto: "Programa", hijos: [], nivel: -1 };
+    const pila = [raiz];
+    for (const linea of lineasRaw) {
+      const espacios = (linea.match(/^ */) || [''])[0].length;
+      const nivel = Math.floor(espacios / 2);
+      const texto = linea.trim();
+      if (texto === "Programa") continue;
+      const nodo = { texto, hijos: [], nivel };
+      while (pila.length > 1 && pila[pila.length - 1].nivel >= nivel) pila.pop();
+      pila[pila.length - 1].hijos.push(nodo);
+      pila.push(nodo);
+    }
+    return raiz;
+  }
+
+  function claseTipo(texto) {
+    const w = texto.split(' ')[0];
+    const map = { Nota: 'ast-nota', Bloque: 'ast-bloque', Declaracion: 'ast-decl', Asignacion: 'ast-asig', Mostrar: 'ast-io', Ingresar: 'ast-io' };
+    return map[w] || '';
+  }
+
+  function crearNodoDOM(nodo) {
+    if (nodo.hijos.length === 0) {
+      const div = document.createElement('div');
+      div.className = 'ast-leaf ' + claseTipo(nodo.texto);
+      div.textContent = nodo.texto;
+      return div;
+    }
+    const det = document.createElement('details');
+    det.open = true;
+    const sum = document.createElement('summary');
+    sum.className = claseTipo(nodo.texto);
+    sum.textContent = nodo.texto;
+    det.appendChild(sum);
+    const wrap = document.createElement('div');
+    wrap.className = 'ast-children';
+    for (const h of nodo.hijos) wrap.appendChild(crearNodoDOM(h));
+    det.appendChild(wrap);
+    return det;
+  }
+
+  function renderAst(arbol) {
+    astView.innerHTML = '';
+    if (!arbol || arbol.hijos.length === 0) {
+      astView.innerHTML = '<em>(AST vacio)</em>';
+      return;
+    }
+    astView.appendChild(crearNodoDOM(arbol));
+  }
+
+  btnAst.addEventListener('click', () => {
+    mostrandoAst = !mostrandoAst;
+    consola.style.display = mostrandoAst ? 'none' : 'block';
+    astView.style.display = mostrandoAst ? 'block' : 'none';
+    btnAst.textContent = mostrandoAst ? 'Ver consola' : 'Ver arbol AST';
+  });
+
+  // ---------- Compilar ----------
   async function compilar() {
     const codigo = editor.value;
     if (!codigo.trim()) {
@@ -239,6 +302,16 @@ SOL:BLANCA |
     estado.textContent = "Compilando...";
     estado.className = "status";
     consola.textContent = "Compilando...";
+    actualizarResaltado([]);
+    btnAst.style.display = 'none';
+    mostrandoAst = false;
+    astView.style.display = 'none';
+    consola.style.display = 'block';
+    btnAst.textContent = 'Ver arbol AST';
+
+    const avisoLento = setTimeout(() => {
+      consola.textContent = "Compilando...\n\n(El servidor puede tardar 30-50s si estaba dormido. Sigue esperando, no esta colgado.)";
+    }, 6000);
 
     try {
       const res = await fetch(BACKEND_URL, {
@@ -246,21 +319,27 @@ SOL:BLANCA |
         headers: { "Content-Type": "text/plain" },
         body: codigo
       });
+      clearTimeout(avisoLento);
 
-      if (!res.ok) {
-        throw new Error("El servidor respondio con estado " + res.status);
-      }
+      if (!res.ok) throw new Error("El servidor respondio con estado " + res.status);
 
       const data = await res.json();
-      consola.textContent = data.output || "(sin salida)";
-      if (data.stderr) {
-        consola.textContent += "\n\n--- stderr ---\n" + data.stderr;
-      }
+      const salida = data.output || "(sin salida)";
+      consola.textContent = salida + (data.stderr ? "\n\n--- stderr ---\n" + data.stderr : "");
       estado.textContent = "Listo";
       estado.className = "status ok";
+
+      actualizarResaltado(extraerLineasError(salida));
+
+      arbolActual = parsearAST(salida);
+      if (arbolActual && arbolActual.hijos.length > 0) {
+        renderAst(arbolActual);
+        btnAst.style.display = 'inline-block';
+      }
     } catch (err) {
+      clearTimeout(avisoLento);
       consola.textContent = "No se pudo conectar con el backend.\n\n" + err.message +
-        "\n\nVerifica que BACKEND_URL en este archivo apunte a tu servicio de Railway.";
+        "\n\nVerifica que BACKEND_URL en este archivo apunte a tu servicio de Render.";
       estado.textContent = "Error";
       estado.className = "status err";
     } finally {
@@ -269,12 +348,8 @@ SOL:BLANCA |
   }
 
   btn.addEventListener('click', compilar);
-
   editor.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      compilar();
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); compilar(); }
   });
 </script>
 
