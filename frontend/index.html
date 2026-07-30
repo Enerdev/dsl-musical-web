@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSL Musical — Compilador</title>
+<style>
+  :root{
+    --ink:#1b2430;
+    --ink-2:#232f3f;
+    --paper:#f2efe6;
+    --paper-2:#e7e2d3;
+    --line:#c9c2ac;
+    --gold:#c99a3a;
+    --gold-dim:#8a6c2c;
+    --term-bg:#10151c;
+    --term-text:#d9e6d0;
+    --err:#e0645a;
+    --ok:#7fbf7f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Georgia","Iowan Old Style",serif;
+    min-height:100vh;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);
+  }
+  .title-row{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:26px;
+    font-weight:400;
+    letter-spacing:0.2px;
+    color:var(--ink);
+  }
+  .tag{
+    font-family:"Courier New",monospace;
+    font-size:12px;
+    color:var(--gold-dim);
+    border:1px solid var(--gold-dim);
+    padding:2px 8px;
+    border-radius:2px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .staff{
+    margin-top:16px;
+    width:100%;
+    height:26px;
+    display:block;
+  }
+  .staff line{ stroke:var(--line); stroke-width:1; }
+  .staff circle{ fill:var(--gold); }
+  main{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    min-height:calc(100vh - 132px);
+  }
+  @media (max-width:840px){
+    main{ grid-template-columns:1fr; }
+  }
+  section{
+    display:flex;
+    flex-direction:column;
+    min-height:420px;
+  }
+  .pane-head{
+    font-family:"Courier New",monospace;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    padding:10px 20px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  #editor{
+    flex:1;
+    resize:none;
+    border:none;
+    outline:none;
+    padding:20px;
+    font-family:"Courier New",Menlo,monospace;
+    font-size:14px;
+    line-height:1.6;
+    background:var(--paper);
+    color:var(--ink);
+    border-right:1px solid var(--line);
+  }
+  .console-wrap{
+    flex:1;
+    background:var(--term-bg);
+    color:var(--term-text);
+    overflow-y:auto;
+  }
+  #consola{
+    margin:0;
+    padding:20px;
+    font-family:"Courier New",Menlo,monospace;
+    font-size:12.5px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .run-btn{
+    font-family:"Courier New",monospace;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    background:var(--ink);
+    color:var(--paper);
+    border:1px solid var(--ink);
+    padding:6px 14px;
+    cursor:pointer;
+    border-radius:2px;
+  }
+  .run-btn:hover{ background:var(--gold-dim); border-color:var(--gold-dim); }
+  .run-btn:disabled{ opacity:0.5; cursor:default; }
+  .run-btn:focus-visible, #editor:focus-visible{
+    outline:2px solid var(--gold);
+    outline-offset:2px;
+  }
+  .status{
+    font-family:"Courier New",monospace;
+    font-size:11px;
+    color:var(--ink-2);
+  }
+  .status.err{ color:var(--err); }
+  .status.ok{ color:var(--gold-dim); }
+  footer{
+    padding:12px 32px;
+    border-top:1px solid var(--line);
+    font-family:"Courier New",monospace;
+    font-size:11px;
+    color:var(--ink-2);
+    background:var(--paper);
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .run-btn{ transition:background 0.15s ease, border-color 0.15s ease; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>DSL Musical</h1>
+    <span class="tag">compilador</span>
+  </div>
+  <svg class="staff" viewBox="0 0 600 26" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" y1="2" x2="600" y2="2"></line>
+    <line x1="0" y1="8" x2="600" y2="8"></line>
+    <line x1="0" y1="14" x2="600" y2="14"></line>
+    <line x1="0" y1="20" x2="600" y2="20"></line>
+    <line x1="0" y1="26" x2="600" y2="26"></line>
+    <circle cx="40" cy="14" r="3"></circle>
+    <circle cx="120" cy="8" r="3"></circle>
+    <circle cx="200" cy="20" r="3"></circle>
+    <circle cx="280" cy="2" r="3"></circle>
+    <circle cx="360" cy="14" r="3"></circle>
+  </svg>
+</header>
+
+<main>
+  <section>
+    <div class="pane-head">
+      <span>Codigo .mus</span>
+      <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
+    </div>
+    <textarea id="editor" spellcheck="false">HOJA A4
+TITULO "Cancion Facil"
+AUTOR "Emerson"
+
+PENTAGRAMA 1
+CLAVE SOL
+COMPAS 4/4
+INSTRUMENTO PIANO
+
+DO:NEGRA
+RE:NEGRA
+MI:NEGRA
+SOL:NEGRA |
+
+LA:BLANCA
+SI:CORCHEA
+DO:CORCHEA
+RE:NEGRA |
+
+SOL:BLANCA |
+</textarea>
+  </section>
+
+  <section>
+    <div class="pane-head">
+      <span>Consola</span>
+      <span class="status" id="estado">Listo</span>
+    </div>
+    <div class="console-wrap">
+      <pre id="consola">Escribe tu codigo y presiona Compilar.</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  DSL Musical &mdash; UNA Puno &middot; Compiladores
+</footer>
+
+<script>
+  // Reemplaza esto por la URL real de tu backend en Railway
+  const BACKEND_URL = "https://TU-BACKEND.up.railway.app/compilar";
+
+  const editor = document.getElementById('editor');
+  const consola = document.getElementById('consola');
+  const estado = document.getElementById('estado');
+  const btn = document.getElementById('btnCompilar');
+
+  async function compilar() {
+    const codigo = editor.value;
+    if (!codigo.trim()) {
+      consola.textContent = "No hay codigo para compilar.";
+      return;
+    }
+
+    btn.disabled = true;
+    estado.textContent = "Compilando...";
+    estado.className = "status";
+    consola.textContent = "Compilando...";
+
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: codigo
+      });
+
+      if (!res.ok) {
+        throw new Error("El servidor respondio con estado " + res.status);
+      }
+
+      const data = await res.json();
+      consola.textContent = data.output || "(sin salida)";
+      if (data.stderr) {
+        consola.textContent += "\n\n--- stderr ---\n" + data.stderr;
+      }
+      estado.textContent = "Listo";
+      estado.className = "status ok";
+    } catch (err) {
+      consola.textContent = "No se pudo conectar con el backend.\n\n" + err.message +
+        "\n\nVerifica que BACKEND_URL en este archivo apunte a tu servicio de Railway.";
+      estado.textContent = "Error";
+      estado.className = "status err";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', compilar);
+
+  editor.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      compilar();
+    }
+  });
+</script>
+
+</body>
+</html>

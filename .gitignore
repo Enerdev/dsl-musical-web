@@ -1,0 +1,4 @@
+backend/compilador
+compilador_test
+*.o
+node_modules/
