@@ -1,6 +1,7 @@
 FROM node:20-slim
 
-RUN apt-get update && apt-get install -y g++ && rm -rf /var/lib/apt/lists/*
+# Install build tools and python (needed by generate_sheet.py)
+RUN apt-get update && apt-get install -y g++ python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
