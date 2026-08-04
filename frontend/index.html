@@ -353,15 +353,27 @@ SOL:BLANCA |
       // detectar heurísticas léxicas en el cliente y anteponerlas
       const lexIssues = detectLexicalIssues(codigo);
       if (lexIssues.length) {
-        // convertir lexIssues a formato de salida esperado por showErrorsList
         const merged = [];
         for (const li of lexIssues) merged.push({ type: 'Lexico', line: li.line, message: li.message });
-        // mostrar primero los errores léxicos detectados localmente
         showErrorsList(merged);
         actualizarResaltado(lexIssues.map(x => x.line));
         estado.textContent = 'Errores';
         estado.className = 'status err';
-        // no continuar con petición de partitura cuando hay errores léxicos
+        clearTimeout(avisoLento);
+        btn.disabled = false;
+        return;
+      }
+
+      // detectar heurísticas semánticas en el cliente (ej. compás inválido)
+      const semIssues = detectSemanticIssues(codigo);
+      if (semIssues.length) {
+        // mapear a formato esperado y mostrar
+        const merged = [];
+        for (const s of semIssues) merged.push({ type: 'Semantico', line: s.line, message: s.message });
+        showErrorsList(merged);
+        actualizarResaltado(semIssues.map(x => x.line));
+        estado.textContent = 'Errores';
+        estado.className = 'status err';
         clearTimeout(avisoLento);
         btn.disabled = false;
         return;
@@ -499,6 +511,28 @@ SOL:BLANCA |
       if (!seen.has(key)) { seen.add(key); uniq.push(it); }
     }
     return uniq;
+  }
+
+  // Heurística semántica ligera en cliente
+  // - valida la directiva COMPAS: formato NUM/NUM y denominador potencia de 2 (2,4,8,16)
+  function detectSemanticIssues(code) {
+    const issues = [];
+    const lines = code.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // buscar COMPAS x/y (case-insensitive)
+      const m = line.match(/^COMPAS\s+(\d+)\s*\/\s*(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        const den = parseInt(m[2], 10);
+        // denominador válido: potencia de 2 (2,4,8,16,...). Limitamos a comunes: 2,4,8,16
+        const valid = [2,4,8,16].includes(den);
+        if (!valid) {
+          issues.push({ type: 'Semantico', line: i + 1, message: `Compás ${num}/${den} inválido: el denominador debe ser 2, 4, 8 o 16` });
+        }
+      }
+    }
+    return issues;
   }
 
   function badgeForType(t) {
