@@ -52,5 +52,49 @@ app.post('/compilar', (req, res) => {
   proceso.stdin.end();
 });
 
+// Generar una partitura simple (SVG) desde el codigo .mus usando un script Python
+app.post('/sheet', (req, res) => {
+  const codigo = req.body || '';
+  if (!codigo.trim()) return res.status(400).json({ error: 'No se recibio codigo fuente.' });
+
+  const format = (req.query.format || 'svg').toLowerCase();
+  const proceso = spawn('python3', ['generate_sheet.py', format], { cwd: __dirname });
+
+  let salida = '';
+  let errorSalida = '';
+  let responded = false;
+
+  proceso.stdout.on('data', (data) => { salida += data.toString(); });
+  proceso.stderr.on('data', (data) => { errorSalida += data.toString(); });
+
+  const timeout = setTimeout(() => { proceso.kill('SIGKILL'); }, 5000);
+
+  proceso.on('close', (code) => {
+    clearTimeout(timeout);
+    if (responded) return;
+    responded = true;
+    if (code !== 0) return res.status(500).json({ error: 'Error generando partitura', stderr: errorSalida });
+    // salida contiene el resultado; devolver con el Content-Type apropiado
+    if (format === 'musicxml') {
+      res.setHeader('Content-Type', 'application/xml');
+    } else if (format === 'abc') {
+      res.setHeader('Content-Type', 'text/plain');
+    } else {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    }
+    res.send(salida);
+  });
+
+  proceso.on('error', (err) => {
+    clearTimeout(timeout);
+    if (responded) return;
+    responded = true;
+    res.status(500).json({ error: 'No se pudo ejecutar el generador: ' + err.message });
+  });
+
+  proceso.stdin.write(codigo);
+  proceso.stdin.end();
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
