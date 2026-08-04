@@ -366,64 +366,64 @@ SOL:BLANCA |
 
       // detectar heurísticas semánticas en el cliente (ej. compás inválido)
       const semIssues = detectSemanticIssues(codigo);
-      if (semIssues.length) {
-        // mapear a formato esperado y mostrar
-        const merged = [];
-        for (const s of semIssues) merged.push({ type: 'Semantico', line: s.line, message: s.message });
-        showErrorsList(merged);
-        actualizarResaltado(semIssues.map(x => x.line));
-        estado.textContent = 'Errores';
-        estado.className = 'status err';
-        clearTimeout(avisoLento);
-        btn.disabled = false;
-        return;
-      }
+        const issues = [];
+        const lines = code.split('\n');
 
-      // Resaltar lineas y mostrar errores resumidos
-      actualizarResaltado(extraerLineasError(salida));
-      const errores = extraerErroresDetalle(salida);
-      showErrorsList(errores);
-
-      // AST
-      arbolActual = parsearAST(salida);
-      if (arbolActual && arbolActual.hijos.length > 0) {
-        renderAst(arbolActual);
-        btnAst.style.display = 'inline-block';
-      }
-
-      estado.textContent = errores.length ? "Errores" : "Listo";
-      estado.className = errores.length ? "status err" : "status ok";
-
-      // Intentar pedir al backend una partitura SVG generada por Python
-      try {
-        const resSheet = await fetch(SHEET_URL, {
-          method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: codigo
-        });
-        if (resSheet.ok) {
-          const svg = await resSheet.text();
-          sheet.innerHTML = svg;
-        } else {
-          // fallback a render local (VexFlow o heurístico)
-          await renderMusicFromCode(codigo);
+        // 1) Obtener compás activo (buscar primera aparición de COMPAS)
+        let compasNum = 4, compasDen = 4;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          const m = line.match(/^COMPAS\s+(\d+)\s*\/\s*(\d+)$/i);
+          if (m) {
+            compasNum = parseInt(m[1], 10);
+            compasDen = parseInt(m[2], 10);
+            if (![2,4,8,16].includes(compasDen)) {
+              issues.push({ type: 'Semantico', line: i + 1, message: `Compás ${compasNum}/${compasDen} inválido: el denominador debe ser 2, 4, 8 o 16` });
+            }
+            break;
+          }
         }
-      } catch (e) {
-        // fallback a render local
-        await renderMusicFromCode(codigo);
-      }
-    } catch (err) {
-      clearTimeout(avisoLento);
-      errorsList.innerHTML = "<pre>No se pudo conectar con el backend.\n\n" + err.message +
-        "\n\nVerifica que BACKEND_URL en este archivo apunte a tu servicio de Render.</pre>";
-      estado.textContent = "Error";
-      estado.className = "status err";
-    } finally {
-      btn.disabled = false;
-    }
-  }
 
-  btn.addEventListener('click', compilar);
-  editor.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); compilar(); }
+        // 2) Si ya detectamos un compás inválido, retornamos inmediatamente
+        if (issues.length) return issues;
+
+        // capacidad del compás en unidades de negras (cuartos): numerator * (4/denominator)
+        const capacityQuarters = compasNum * (4 / compasDen);
+
+        // mapeo de duraciones a unidades de negra (cuartos)
+        const durQuarters = { 'REDONDA': 4, 'BLANCA': 2, 'NEGRA': 1, 'CORCHEA': 0.5, 'SEMICORCHEA': 0.25 };
+
+        // 3) Recorrer líneas y agrupar medidas hasta encontrar '|' para validar suma
+        let accMeasure = '';
+        let measureIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const raw = lines[i];
+          accMeasure += raw + ' ';
+          if (raw.indexOf('|') !== -1) {
+            // una o varias barras en la línea
+            const parts = accMeasure.split('|').map(p => p.trim()).filter(p => p.length > 0);
+            for (const p of parts) {
+              measureIndex++;
+              // sumar duraciones dentro de p
+              let sum = 0;
+              const note_re = /([A-GA-ZÑñ]+)([#b♯♭])?\s*:\s*([A-Za-z]+)/gi;
+              let m;
+              while ((m = note_re.exec(p)) !== null) {
+                const dur = (m[3] || '').toUpperCase();
+                const q = durQuarters[dur];
+                if (q) sum += q;
+              }
+              // permitir pequeña tolerancia por floats
+              if (sum > capacityQuarters + 1e-9) {
+                // marcar la línea actual como origen del error semántico
+                issues.push({ type: 'Semantico', line: i + 1, message: `Suma de duraciones en compás ${measureIndex} excede ${compasNum}/${compasDen} (total ${sum})` });
+              }
+            }
+            accMeasure = ''; // reiniciar acumulador para siguiente medida
+          }
+        }
+
+        return issues;
   });
 
   // Descargar MusicXML desde el backend
