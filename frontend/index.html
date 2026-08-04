@@ -134,6 +134,7 @@
       <div style="display:flex; gap:8px; align-items:center;">
         <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
         <button class="ghost-btn" id="btnForceCompile" style="display:inline-flex;">Forzar compilación</button>
+        <span id="positionIndicator" class="status" style="margin-left:8px; white-space:nowrap;">L1:C1</span>
       </div>
     </div>
     <div class="editor-wrap">
@@ -182,6 +183,7 @@ SOL:BLANCA |
         <div id="sheetWrap" style="width:50%; padding:12px 14px; background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%); overflow:auto;">
           <div style="display:flex; align-items:center; gap:12px;">
             <div id="sheetTitle" style="font-family:Georgia,serif; font-size:15px; margin-bottom:8px; color:var(--ink);">Partitura</div>
+            <button class="run-btn" id="btnPlayAudio" style="font-size:12px; padding:6px 10px;">Reproducir</button>
             <button class="run-btn" id="btnDownloadMusicXML" style="font-size:12px; padding:6px 10px;">Descargar MusicXML</button>
           </div>
           <div id="sheet" aria-live="polite"></div>
@@ -207,9 +209,12 @@ SOL:BLANCA |
   const btn = document.getElementById('btnCompilar');
   const btnForce = document.getElementById('btnForceCompile');
   const btnAst = document.getElementById('btnAst');
+  const positionIndicator = document.getElementById('positionIndicator');
+  const btnPlayAudio = document.getElementById('btnPlayAudio');
 
   if (btnForce) btnForce.style.display = 'inline-flex';
   if (btnAst) btnAst.style.display = 'none';
+  if (btnPlayAudio) btnPlayAudio.disabled = true;
 
   const errorsList = document.getElementById('errorsList');
   const errorSummary = document.getElementById('errorSummary');
@@ -219,6 +224,8 @@ SOL:BLANCA |
 
   let arbolActual = null;
   let mostrandoAst = false;
+  let lastParsedMusic = [];
+  let audioContext = null;
 
   // ---------- Resaltado de lineas con error ----------
   function extraerLineasError(output) {
@@ -255,6 +262,22 @@ SOL:BLANCA |
     highlightLayer.style.transform = 'translateY(' + (-editor.scrollTop) + 'px)';
   }
   editor.addEventListener('scroll', sincronizarScroll);
+
+  function updateCursorPosition() {
+    if (!positionIndicator || !editor) return;
+    const cursorIndex = editor.selectionStart;
+    const beforeCursor = editor.value.slice(0, cursorIndex);
+    const line = beforeCursor.split('\n').length;
+    const lastNewline = beforeCursor.lastIndexOf('\n');
+    const column = cursorIndex - lastNewline;
+    positionIndicator.textContent = `L${line}:C${column}`;
+  }
+
+  editor.addEventListener('input', updateCursorPosition);
+  editor.addEventListener('click', updateCursorPosition);
+  editor.addEventListener('keyup', updateCursorPosition);
+  editor.addEventListener('select', updateCursorPosition);
+  updateCursorPosition();
 
   // ---------- Arbol AST ----------
   function parsearAST(output) {
@@ -618,25 +641,37 @@ SOL:BLANCA |
   }
 
   // Render musical notes en cliente (mejorado): genera SVG directamente sin VexFlow
+  function parseMusicCode(codigo) {
+    const note_re = /([A-GA-ZÑñ]+)([#b♯♭])?\s*:\s*([A-Za-z]+)/gi;
+    const dur_val = { 'REDONDA': 4, 'BLANCA': 2, 'NEGRA': 1, 'CORCHEA': 0.5 };
+    const measures = codigo.split('|').map(p => p.trim()).filter(p => p.length > 0);
+    const parsed = [];
+    for (const bar of measures) {
+      const arr = [];
+      let m;
+      while ((m = note_re.exec(bar)) !== null) {
+        const raw = m[1].toUpperCase();
+        const acc = m[2] || '';
+        const dur = (m[3] || '').toUpperCase();
+        const beats = dur_val[dur];
+        if (!beats) continue;
+        arr.push({ name: raw, accidental: acc, dur, beats });
+      }
+      parsed.push(arr);
+    }
+    return parsed;
+  }
+
+  function updateAudioPlaybackState(parsed) {
+    lastParsedMusic = parsed || [];
+    if (btnPlayAudio) btnPlayAudio.disabled = lastParsedMusic.length === 0;
+  }
+
   function renderMusicFromCode(codigo) {
     sheet.innerHTML = '';
     try {
-      const note_re = /([A-GA-ZÑñ]+)([#b♯♭])?\s*:\s*([A-Za-z]+)/gi;
-      const dur_val = { 'REDONDA': 4, 'BLANCA': 2, 'NEGRA': 1, 'CORCHEA': 0.5 };
-      const measures = codigo.split('|').map(p => p.trim()).filter(p => p.length > 0);
-      const parsed = [];
-      for (const bar of measures) {
-        const arr = [];
-        let m;
-        while ((m = note_re.exec(bar)) !== null) {
-          const raw = m[1].toUpperCase();
-          const acc = m[2] || '';
-          const dur = (m[3] || '').toUpperCase();
-          if (!dur_val[dur]) continue;
-          arr.push({ name: raw, accidental: acc, dur });
-        }
-        parsed.push(arr);
-      }
+      const parsed = parseMusicCode(codigo);
+      updateAudioPlaybackState(parsed);
 
       if (parsed.length === 0) {
         sheet.innerHTML = '<em>No se encontraron notas reconocibles para generar partitura.</em>';
@@ -727,6 +762,69 @@ SOL:BLANCA |
     } catch (e) {
       sheet.innerHTML = '<pre>Error al generar partitura local: ' + (e && e.message ? e.message : e) + '</pre>';
     }
+  }
+
+  function noteFrequency(name, accidental) {
+    const rootFreq = {
+      'DO': 261.63,
+      'RE': 293.66,
+      'MI': 329.63,
+      'FA': 349.23,
+      'SOL': 392.00,
+      'LA': 440.00,
+      'SI': 493.88
+    };
+    const base = rootFreq[name];
+    if (!base) return null;
+    const semitoneRatio = Math.pow(2, 1 / 12);
+    if (accidental === '#' || accidental === '♯') return base * semitoneRatio;
+    if (accidental === 'b' || accidental === '♭') return base / semitoneRatio;
+    return base;
+  }
+
+  function playParsedMusic(parsed) {
+    if (!window.AudioContext && !window.webkitAudioContext) {
+      return alert('Audio no soportado en este navegador.');
+    }
+    if (!parsed || parsed.length === 0) return;
+
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const now = audioContext.currentTime + 0.1;
+    const tempo = 120;
+    const secondsPerBeat = 60 / tempo;
+    let startTime = now;
+    const gain = audioContext.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.3, now + 0.02);
+    gain.connect(audioContext.destination);
+
+    for (const measure of parsed) {
+      for (const note of measure) {
+        const freq = noteFrequency(note.name, note.accidental);
+        if (!freq) {
+          startTime += note.beats * secondsPerBeat;
+          continue;
+        }
+        const osc = audioContext.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, startTime);
+        osc.connect(gain);
+        osc.start(startTime);
+        osc.stop(startTime + note.beats * secondsPerBeat * 0.95);
+        startTime += note.beats * secondsPerBeat;
+      }
+    }
+    gain.gain.setValueAtTime(0.3, startTime * 0.999);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+  }
+
+  if (btnPlayAudio) {
+    btnPlayAudio.addEventListener('click', () => {
+      if (lastParsedMusic.length === 0) return;
+      playParsedMusic(lastParsedMusic);
+    });
   }
 </script>
 
