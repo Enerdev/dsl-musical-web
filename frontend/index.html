@@ -791,6 +791,32 @@ SOL:BLANCA |
     return base;
   }
 
+  function applyADSREnvelope(gainNode, startTime, duration, attack = 0.02, decay = 0.08, sustainLevel = 0.75, release = 0.1) {
+    const endTime = startTime + duration;
+    if (duration <= 0) return;
+
+    let a = attack;
+    let d = decay;
+    let r = release;
+    const minEnvelopeTime = a + d + r;
+    if (minEnvelopeTime > duration) {
+      const scale = duration / (minEnvelopeTime + 1e-9);
+      a *= scale;
+      d *= scale;
+      r *= scale;
+    }
+
+    const attackEnd = startTime + a;
+    const decayEnd = attackEnd + d;
+    const releaseStart = Math.max(decayEnd, endTime - r);
+
+    gainNode.gain.setValueAtTime(0.0001, startTime);
+    gainNode.gain.linearRampToValueAtTime(1.0, attackEnd);
+    gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, sustainLevel), decayEnd);
+    gainNode.gain.setValueAtTime(Math.max(0.0001, sustainLevel), releaseStart);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, endTime);
+  }
+
   async function playParsedMusic(parsed) {
     if (!window.AudioContext && !window.webkitAudioContext) {
       return alert('Audio no soportado en este navegador.');
@@ -827,10 +853,8 @@ SOL:BLANCA |
         osc.frequency.setValueAtTime(freq, startTime);
 
         const noteGain = audioContext.createGain();
-        noteGain.gain.setValueAtTime(0, startTime);
-        noteGain.gain.linearRampToValueAtTime(0.18, startTime + 0.02);
-        noteGain.gain.setValueAtTime(0.18, startTime + note.beats * secondsPerBeat * 0.85);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + note.beats * secondsPerBeat);
+        const duration = note.beats * secondsPerBeat * 0.95;
+        applyADSREnvelope(noteGain, startTime, duration, 0.02, 0.08, isViolin ? 0.7 : 0.75, 0.12);
 
         if (isViolin) {
           const filter = audioContext.createBiquadFilter();
@@ -845,7 +869,7 @@ SOL:BLANCA |
 
         noteGain.connect(gain);
         osc.start(startTime);
-        osc.stop(startTime + note.beats * secondsPerBeat * 0.95);
+        osc.stop(startTime + duration);
         startTime += note.beats * secondsPerBeat;
       }
     }
