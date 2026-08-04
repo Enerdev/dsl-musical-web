@@ -353,8 +353,11 @@ SOL:BLANCA |
     const codigo = editor.value;
     if (!codigo.trim()) {
       errorsList.innerHTML = "<em>No hay codigo para compilar.</em>";
+      updateAudioPlaybackState([]);
       return;
     }
+
+    updateAudioPlaybackState(parseMusicCode(codigo));
 
     btn.disabled = true;
     estado.textContent = "Compilando...";
@@ -782,7 +785,7 @@ SOL:BLANCA |
     return base;
   }
 
-  function playParsedMusic(parsed) {
+  async function playParsedMusic(parsed) {
     if (!window.AudioContext && !window.webkitAudioContext) {
       return alert('Audio no soportado en este navegador.');
     }
@@ -791,6 +794,10 @@ SOL:BLANCA |
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
     const now = audioContext.currentTime + 0.1;
     const tempo = 120;
     const secondsPerBeat = 60 / tempo;
