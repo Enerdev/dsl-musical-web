@@ -181,9 +181,13 @@ SOL:BLANCA |
           <em>Presiona "Compilar" para obtener errores.</em>
         </div>
         <div id="sheetWrap" style="width:50%; padding:12px 14px; background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%); overflow:auto;">
-          <div style="display:flex; align-items:center; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <div id="sheetTitle" style="font-family:Georgia,serif; font-size:15px; margin-bottom:8px; color:var(--ink);">Partitura</div>
             <button class="run-btn" id="btnPlayAudio" style="font-size:12px; padding:6px 10px;">Reproducir</button>
+            <select id="instrumentSelect" class="ghost-btn" style="font-size:12px; padding:6px 10px;">
+              <option value="PIANO">Piano</option>
+              <option value="VIOLIN">Violín</option>
+            </select>
             <button class="run-btn" id="btnDownloadMusicXML" style="font-size:12px; padding:6px 10px;">Descargar MusicXML</button>
           </div>
           <div id="sheet" aria-live="polite"></div>
@@ -211,10 +215,12 @@ SOL:BLANCA |
   const btnAst = document.getElementById('btnAst');
   const positionIndicator = document.getElementById('positionIndicator');
   const btnPlayAudio = document.getElementById('btnPlayAudio');
+  const instrumentSelect = document.getElementById('instrumentSelect');
 
   if (btnForce) btnForce.style.display = 'inline-flex';
   if (btnAst) btnAst.style.display = 'none';
   if (btnPlayAudio) btnPlayAudio.disabled = true;
+  if (instrumentSelect) instrumentSelect.value = 'PIANO';
 
   const errorsList = document.getElementById('errorsList');
   const errorSummary = document.getElementById('errorSummary');
@@ -798,6 +804,7 @@ SOL:BLANCA |
       await audioContext.resume();
     }
 
+    const instrument = instrumentSelect?.value || 'PIANO';
     const now = audioContext.currentTime + 0.1;
     const tempo = 120;
     const secondsPerBeat = 60 / tempo;
@@ -815,9 +822,28 @@ SOL:BLANCA |
           continue;
         }
         const osc = audioContext.createOscillator();
-        osc.type = 'triangle';
+        const isViolin = instrument === 'VIOLIN';
+        osc.type = isViolin ? 'sawtooth' : 'triangle';
         osc.frequency.setValueAtTime(freq, startTime);
-        osc.connect(gain);
+
+        const noteGain = audioContext.createGain();
+        noteGain.gain.setValueAtTime(0, startTime);
+        noteGain.gain.linearRampToValueAtTime(0.18, startTime + 0.02);
+        noteGain.gain.setValueAtTime(0.18, startTime + note.beats * secondsPerBeat * 0.85);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + note.beats * secondsPerBeat);
+
+        if (isViolin) {
+          const filter = audioContext.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1500, startTime);
+          filter.Q.setValueAtTime(1.2, startTime);
+          osc.connect(filter);
+          filter.connect(noteGain);
+        } else {
+          osc.connect(noteGain);
+        }
+
+        noteGain.connect(gain);
         osc.start(startTime);
         osc.stop(startTime + note.beats * secondsPerBeat * 0.95);
         startTime += note.beats * secondsPerBeat;
