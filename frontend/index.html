@@ -79,7 +79,7 @@
   .run-btn{ background:var(--ink); color:var(--paper); border:1px solid var(--ink); }
   .run-btn:hover{ background:var(--gold-dim); border-color:var(--gold-dim); }
   .run-btn:disabled{ opacity:0.5; cursor:default; }
-  .ghost-btn{ background:transparent; color:var(--term-text); border:1px solid var(--term-text); display:none; }
+  .ghost-btn{ background:transparent; color:var(--term-text); border:1px solid var(--term-text); }
   .ghost-btn:hover{ background:rgba(217,230,208,0.1); }
   .run-btn:focus-visible, .ghost-btn:focus-visible, #editor:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 
@@ -133,7 +133,7 @@
       <span>Codigo .mus</span>
       <div style="display:flex; gap:8px; align-items:center;">
         <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
-        <button class="ghost-btn" id="btnForceCompile">Forzar compilación</button>
+        <button class="ghost-btn" id="btnForceCompile" style="display:inline-flex;">Forzar compilación</button>
       </div>
     </div>
     <div class="editor-wrap">
@@ -207,6 +207,9 @@ SOL:BLANCA |
   const btn = document.getElementById('btnCompilar');
   const btnForce = document.getElementById('btnForceCompile');
   const btnAst = document.getElementById('btnAst');
+
+  if (btnForce) btnForce.style.display = 'inline-flex';
+  if (btnAst) btnAst.style.display = 'none';
 
   const errorsList = document.getElementById('errorsList');
   const errorSummary = document.getElementById('errorSummary');
@@ -319,7 +322,8 @@ SOL:BLANCA |
     btnAst.textContent = mostrandoAst ? 'Ver errores' : 'Ver arbol AST';
   });
 
-  btnForce.addEventListener('click', () => compilar(true));
+  if (btnForce) btnForce.addEventListener('click', () => compilar(true));
+  if (btn) btn.addEventListener('click', () => compilar(false));
 
   // ---------- Compilar ----------
   async function compilar(force = false) {
@@ -481,15 +485,6 @@ SOL:BLANCA |
     const reLex = /^\s*(\d+)\s+.*ERROR LEXICO.*$/gm;
     while ((m = reLex.exec(output)) !== null) {
       errores.push({ type: 'Lexico', line: parseInt(m[1], 10), message: (m[0] || '').trim() });
-    }
-    // Fallback: buscar cualquier linea que contenga "ERROR"
-    const reAny = /^(.*ERROR.*)$/gim;
-    while ((m = reAny.exec(output)) !== null) {
-      const text = m[1].trim();
-      if (!text) continue;
-      if (!/LEXICO|SINT|SEMANTICO/i.test(text)) {
-        errores.push({ type: 'Otro', line: null, message: text });
-      }
     }
     return errores;
   }
