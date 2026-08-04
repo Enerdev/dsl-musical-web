@@ -351,14 +351,23 @@ SOL:BLANCA |
       });
       clearTimeout(avisoLento);
 
+      console.groupCollapsed('[DSL Musical] compilar()');
+      console.log('force:', force);
+      console.log('BACKEND_URL:', BACKEND_URL);
+      console.log('HTTP status:', res.status);
+      console.log('response headers:', Array.from(res.headers.entries()));
+
       if (!res.ok) throw new Error("El servidor respondio con estado " + res.status);
 
       const data = await res.json();
       const salida = data.output || "(sin salida)";
+      console.log('backend output:', salida);
 
       // heurísticas del cliente
       const lexIssues = detectLexicalIssues(codigo);
       const semIssues = detectSemanticIssues(codigo);
+      console.log('lexIssues:', lexIssues);
+      console.log('semIssues:', semIssues);
 
       // errores reportados por el backend
       const backendErrors = extraerErroresDetalle(salida);
@@ -421,6 +430,7 @@ SOL:BLANCA |
       }
     } catch (err) {
       clearTimeout(avisoLento);
+      console.error('[DSL Musical] compilar() error:', err);
       errorsList.innerHTML = "<pre>No se pudo conectar con el backend.\n\n" + err.message +
         "\n\nVerifica que BACKEND_URL en este archivo apunte a tu servicio de Render.</pre>";
       estado.textContent = "Error";
@@ -428,6 +438,7 @@ SOL:BLANCA |
     } finally {
       btn.disabled = false;
       btnForce.disabled = false;
+      console.groupEnd();
     }
   }
 
