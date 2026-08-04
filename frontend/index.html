@@ -131,7 +131,10 @@
   <section>
     <div class="pane-head">
       <span>Codigo .mus</span>
-      <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="run-btn" id="btnCompilar">Compilar &#9658;</button>
+        <button class="ghost-btn" id="btnForceCompile">Forzar compilación</button>
+      </div>
     </div>
     <div class="editor-wrap">
       <div class="highlight-layer" id="highlightLayer"></div>
@@ -202,6 +205,7 @@ SOL:BLANCA |
   const highlightLayer = document.getElementById('highlightLayer');
   const estado = document.getElementById('estado');
   const btn = document.getElementById('btnCompilar');
+  const btnForce = document.getElementById('btnForceCompile');
   const btnAst = document.getElementById('btnAst');
 
   const errorsList = document.getElementById('errorsList');
@@ -315,8 +319,10 @@ SOL:BLANCA |
     btnAst.textContent = mostrandoAst ? 'Ver errores' : 'Ver arbol AST';
   });
 
+  btnForce.addEventListener('click', () => compilar(true));
+
   // ---------- Compilar ----------
-  async function compilar() {
+  async function compilar(force = false) {
     const codigo = editor.value;
     if (!codigo.trim()) {
       errorsList.innerHTML = "<em>No hay codigo para compilar.</em>";
@@ -356,13 +362,14 @@ SOL:BLANCA |
 
       // errores reportados por el backend
       const backendErrors = extraerErroresDetalle(salida);
+      let showClientIssues = lexIssues.length || semIssues.length;
 
       if (backendErrors.length) {
         actualizarResaltado(extraerLineasError(salida));
         showErrorsList(backendErrors);
         estado.textContent = 'Errores';
         estado.className = 'status err';
-      } else if (lexIssues.length || semIssues.length) {
+      } else if (showClientIssues && !force) {
         const merged = [];
         for (const li of lexIssues) merged.push({ type: 'Lexico', line: li.line, message: li.message });
         for (const si of semIssues) merged.push({ type: 'Semantico', line: si.line, message: si.message });
@@ -371,11 +378,20 @@ SOL:BLANCA |
         estado.textContent = 'Errores';
         estado.className = 'status err';
       } else {
-        // no hay errores
-        actualizarResaltado([]);
-        showErrorsList([]);
-        estado.textContent = 'Listo';
-        estado.className = 'status ok';
+        if (showClientIssues && force) {
+          const merged = [];
+          for (const li of lexIssues) merged.push({ type: 'Lexico', line: li.line, message: li.message });
+          for (const si of semIssues) merged.push({ type: 'Semantico', line: si.line, message: si.message });
+          showErrorsList(merged);
+          actualizarResaltado(merged.map(x => x.line));
+          estado.textContent = 'Forzado con avisos';
+          estado.className = 'status err';
+        } else {
+          actualizarResaltado([]);
+          showErrorsList([]);
+          estado.textContent = 'Listo';
+          estado.className = 'status ok';
+        }
       }
 
       // AST
@@ -385,9 +401,8 @@ SOL:BLANCA |
         btnAst.style.display = 'inline-block';
       }
 
-      // Intentar pedir al backend una partitura SVG generada por Python, salvo errores léxicos
-      if (lexIssues.length) {
-        // si hay errores léxicos preferimos no pedir la partitura y mostrar fallback
+      // Intentar pedir al backend una partitura SVG generada por Python, salvo errores léxicos sin forzar
+      if (lexIssues.length && !force) {
         await renderMusicFromCode(codigo);
       } else {
         try {
@@ -412,6 +427,7 @@ SOL:BLANCA |
       estado.className = "status err";
     } finally {
       btn.disabled = false;
+      btnForce.disabled = false;
     }
   
   
