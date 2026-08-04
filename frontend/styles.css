@@ -1,0 +1,99 @@
+:root{
+  --ink:#1b2430;
+  --ink-2:#232f3f;
+  --paper:#f2efe6;
+  --paper-2:#e7e2d3;
+  --line:#c9c2ac;
+  --gold:#c99a3a;
+  --gold-dim:#8a6c2c;
+  --term-bg:#10151c;
+  --term-text:#d9e6d0;
+  --err:#e0645a;
+  --ok:#7fbf7f;
+  --c-nota:#c99a3a;
+  --c-bloque:#6d93b8;
+  --c-decl:#7fae6a;
+  --c-asig:#b07cc6;
+  --c-io:#4fb3a9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Georgia","Iowan Old Style",serif;
+  min-height:100vh;
+}
+header{
+  padding:28px 32px 18px;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);
+}
+.title-row{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+h1{ margin:0; font-size:26px; font-weight:400; letter-spacing:0.2px; color:var(--ink); }
+.tag{
+  font-family:"Courier New",monospace; font-size:12px; color:var(--gold-dim);
+  border:1px solid var(--gold-dim); padding:2px 8px; border-radius:2px;
+  text-transform:uppercase; letter-spacing:1px;
+}
+.staff{ margin-top:16px; width:100%; height:26px; display:block; }
+.staff line{ stroke:var(--line); stroke-width:1; }
+.staff circle{ fill:var(--gold); }
+/* Layout: editor arriba, resultados abajo (barra horizontal) */
+main{ display:grid; grid-template-rows: 1fr 360px; gap:0; min-height:calc(100vh - 132px); }
+@media (max-width:1200px){ main{ grid-template-rows: 1fr 420px; } }
+@media (max-width:840px){ main{ grid-template-rows: 1fr 520px; } }
+section{ display:flex; flex-direction:column; min-height:420px; }
+.pane-head{
+  font-family:"Courier New",monospace; font-size:11px; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--ink-2); padding:10px 20px;
+  border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:10px;
+}
+.pane-head .right{ display:flex; align-items:center; gap:10px; }
+
+.editor-wrap{ position:relative; flex:1; background:var(--paper); border-right:1px solid var(--line); overflow:hidden; }
+/* When results are below, remove right-border visual on editor */
+main > section:first-child .editor-wrap{ border-right: none; border-bottom:1px solid var(--line); }
+.highlight-layer{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.error-line{ position:absolute; left:0; right:0; background:rgba(224,100,90,0.16); border-left:3px solid var(--err); }
+#editor{
+  position:relative; z-index:1; width:100%; height:100%; resize:none; border:none; outline:none;
+  padding:20px; font-family:"Courier New",Menlo,monospace; font-size:14px; line-height:1.6;
+  background:transparent; color:var(--ink);
+}
+
+.console-wrap{ flex:1; background:var(--term-bg); color:var(--term-text); overflow-y:auto; }
+#consola{ margin:0; padding:20px; font-family:"Courier New",Menlo,monospace; font-size:12.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+
+.run-btn, .ghost-btn{
+  font-family:"Courier New",monospace; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+  padding:6px 14px; cursor:pointer; border-radius:2px;
+}
+.run-btn{ background:var(--ink); color:var(--paper); border:1px solid var(--ink); }
+.run-btn:hover{ background:var(--gold-dim); border-color:var(--gold-dim); }
+.run-btn:disabled{ opacity:0.5; cursor:default; }
+.ghost-btn{ background:transparent; color:var(--term-text); border:1px solid var(--term-text); }
+.ghost-btn:hover{ background:rgba(217,230,208,0.1); }
+.run-btn:focus-visible, .ghost-btn:focus-visible, #editor:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+.status{ font-family:"Courier New",monospace; font-size:11px; color:var(--ink-2); }
+.status.err{ color:var(--err); }
+.status.ok{ color:var(--gold-dim); }
+
+footer{ padding:12px 32px; border-top:1px solid var(--line); font-family:"Courier New",monospace; font-size:11px; color:var(--ink-2); background:var(--paper); }
+
+/* Arbol AST */
+#astView{ display:none; padding:16px 20px; font-family:"Courier New",Menlo,monospace; font-size:12.5px; }
+#astView summary{ cursor:pointer; padding:2px 0; }
+#astView summary::marker{ color:var(--term-text); }
+.ast-children{ margin-left:16px; border-left:1px dashed rgba(217,230,208,0.25); padding-left:10px; }
+.ast-leaf{ padding:2px 0 2px 4px; }
+.ast-nota{ color:var(--c-nota); }
+.ast-bloque{ color:var(--c-bloque); font-weight:bold; }
+.ast-decl{ color:var(--c-decl); }
+.ast-asig{ color:var(--c-asig); }
+.ast-io{ color:var(--c-io); }
+
+@media (prefers-reduced-motion:no-preference){
+  .run-btn, .ghost-btn{ transition:background 0.15s ease, border-color 0.15s ease; }
+}
