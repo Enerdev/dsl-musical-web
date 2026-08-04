@@ -449,6 +449,41 @@ SOL:BLANCA |
     return errores;
   }
 
+  // Heurística para detectar errores léxicos en el código fuente
+  // - cadenas sin cerrar (comillas dobles)
+  // - caracteres no imprimibles o tokens sospechosos (puede ampliarse)
+  function detectLexicalIssues(code) {
+    const issues = [];
+    const lines = code.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // detectar comillas dobles sin cerrar en la misma o en líneas posteriores
+      const quotes = (line.match(/\"/g) || []).length;
+      // cuenta total de comillas hasta esta línea para detectar apertura sin cierre
+      const totalQuotesUpToLine = lines.slice(0, i + 1).join('\n').match(/\"/g);
+      const total = totalQuotesUpToLine ? totalQuotesUpToLine.length : 0;
+      if (total % 2 === 1) {
+        // si hay una comilla abierta que no se cierra dentro de las primeras N líneas,
+        // marcar la línea donde aparece la apertura (mejor heurística: buscar la primera '"')
+        const idx = (line.indexOf('"') !== -1) ? line.indexOf('"') : 0;
+        issues.push({ type: 'Lexico', line: i + 1, message: 'Cadena entrecomillada sin cerrar (falta ")' });
+      }
+
+      // detectar caracteres no imprimibles raros (ej. carácter de control)
+      if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(line)) {
+        issues.push({ type: 'Lexico', line: i + 1, message: 'Caracter no imprimible o inválido en la linea' });
+      }
+    }
+    // eliminar duplicados por linea
+    const uniq = [];
+    const seen = new Set();
+    for (const it of issues) {
+      const key = `${it.type}|${it.line}|${it.message}`;
+      if (!seen.has(key)) { seen.add(key); uniq.push(it); }
+    }
+    return uniq;
+  }
+
   function badgeForType(t) {
     const map = { 'Lexico': 'background:var(--err); color:#fff; padding:4px 8px; border-radius:12px; font-family:Courier New,monospace; font-size:12px;', 'Sintactico': 'background:#f39c12; color:#fff; padding:4px 8px; border-radius:12px; font-family:Courier New,monospace; font-size:12px;', 'Semantico': 'background:#8e44ad; color:#fff; padding:4px 8px; border-radius:12px; font-family:Courier New,monospace; font-size:12px;', 'Otro': 'background:#666; color:#fff; padding:4px 8px; border-radius:12px; font-family:Courier New,monospace; font-size:12px;' };
     return map[t] || map['Otro'];
