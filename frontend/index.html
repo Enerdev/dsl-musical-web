@@ -350,6 +350,23 @@ SOL:BLANCA |
       const data = await res.json();
       const salida = data.output || "(sin salida)";
 
+      // detectar heurísticas léxicas en el cliente y anteponerlas
+      const lexIssues = detectLexicalIssues(codigo);
+      if (lexIssues.length) {
+        // convertir lexIssues a formato de salida esperado por showErrorsList
+        const merged = [];
+        for (const li of lexIssues) merged.push({ type: 'Lexico', line: li.line, message: li.message });
+        // mostrar primero los errores léxicos detectados localmente
+        showErrorsList(merged);
+        actualizarResaltado(lexIssues.map(x => x.line));
+        estado.textContent = 'Errores';
+        estado.className = 'status err';
+        // no continuar con petición de partitura cuando hay errores léxicos
+        clearTimeout(avisoLento);
+        btn.disabled = false;
+        return;
+      }
+
       // Resaltar lineas y mostrar errores resumidos
       actualizarResaltado(extraerLineasError(salida));
       const errores = extraerErroresDetalle(salida);
