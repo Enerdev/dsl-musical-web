@@ -117,21 +117,40 @@ def escape_pdf(text):
 
 
 def to_pdf(titulo, autor, compas, measures):
-    lines = []
-    lines.append(f"TITULO: {titulo or 'Untitled'}")
-    if autor:
-        lines.append(f"AUTOR: {autor}")
-    lines.append(f"COMPAS: {compas[0]}/{compas[1]}")
-    lines.append('')
-    for idx, meas in enumerate(measures, 1):
-        notas = ', '.join(f"{n}:{d}" for n, d, _ in meas) if meas else '(sin notas)'
-        lines.append(f"Compas {idx}: {notas}")
-
     content_lines = []
-    y = 760
-    for line in lines:
-        content_lines.append(f"BT /F1 12 Tf 50 {y} Td ({escape_pdf(line)}) Tj ET")
-        y -= 14
+    content_lines.append("BT /F1 16 Tf 50 760 Td ({}) Tj ET".format(escape_pdf(titulo or 'Untitled')))
+    if autor:
+        content_lines.append("BT /F1 10 Tf 50 735 Td ({}) Tj ET".format(escape_pdf(autor)))
+    content_lines.append("BT /F1 10 Tf 50 710 Td (Compas {}/{} ) Tj ET".format(compas[0], compas[1]))
+
+    staff_top = 620
+    staff_y = [staff_top + i * 12 for i in range(5)]
+    for y in staff_y:
+        content_lines.append(f"0 0 0 RG 50 {y} m 520 {y} l S")
+
+    measure_count = max(1, len(measures))
+    measure_width = 470 / measure_count
+    note_pos = {'DO': 0, 'RE': 1, 'MI': 2, 'FA': 3, 'SOL': 4, 'LA': 5, 'SI': 6}
+
+    for mi, meas in enumerate(measures):
+        x0 = 50 + mi * measure_width
+        content_lines.append(f"0 0 0 RG {x0} {staff_top - 20} m {x0} {staff_top + 48} l S")
+        x = x0 + 20
+        for n, d, _ in meas:
+            pos = note_pos.get(n, 2)
+            y = staff_y[2] - (pos * 6)
+            if d in ('NEGRA', 'CORCHEA'):
+                content_lines.append(f"0 0 0 rg {x} {y} 8 6 re f")
+                content_lines.append(f"0 0 0 RG {x + 6} {y} m {x + 6} {y + 35} l S")
+            elif d == 'BLANCA':
+                content_lines.append(f"0 0 0 rg {x} {y} 10 7 re f")
+            else:
+                content_lines.append(f"0 0 0 rg {x} {y} 10 8 re f")
+            x += 40
+
+    if measures:
+        x_end = 50 + len(measures) * measure_width
+        content_lines.append(f"0 0 0 RG {x_end} {staff_top - 20} m {x_end} {staff_top + 48} l S")
 
     content = '\n'.join(content_lines)
     content_bytes = content.encode('latin-1', 'replace')
