@@ -11,6 +11,7 @@ const btnForce = document.getElementById('btnForceCompile');
 const btnAst = document.getElementById('btnAst');
 const positionIndicator = document.getElementById('positionIndicator');
 const btnPlayAudio = document.getElementById('btnPlayAudio');
+const btnStopAudio = document.getElementById('btnStopAudio');
 const instrumentSelect = document.getElementById('instrumentSelect');
 const tempoRange = document.getElementById('tempoRange');
 const tempoValue = document.getElementById('tempoValue');
@@ -37,6 +38,8 @@ let lastParsedMusic = [];
 let audioContext = null;
 let reverbNode = null;
 let noiseBuffer = null;
+let activeAudioSources = [];
+let activeAudioNodes = [];
 // Samples support
 const SAMPLE_FILES = {
   'PIANO': 'audio/piano_A4.mp3',
@@ -118,6 +121,28 @@ if (tempoRange && tempoValue) {
   tempoRange.addEventListener('input', () => { tempoValue.textContent = tempoRange.value; });
 }
 if (chorusAmount) chorusAmount.addEventListener('input', () => { /* UI-only slider */ });
+
+function stopAudioPlayback() {
+  if (activeAudioSources.length) {
+    for (const src of activeAudioSources) {
+      try { src.stop(); } catch (e) { }
+      try { src.disconnect(); } catch (e) { }
+    }
+    activeAudioSources = [];
+  }
+  if (activeAudioNodes.length) {
+    for (const node of activeAudioNodes) {
+      try { node.disconnect(); } catch (e) { }
+    }
+    activeAudioNodes = [];
+  }
+}
+
+if (btnStopAudio) {
+  btnStopAudio.addEventListener('click', () => {
+    stopAudioPlayback();
+  });
+}
 
 // ---------- Resaltado de lineas con error ----------
 function extraerLineasError(output) {
@@ -363,6 +388,33 @@ async function compilar(force = false) {
     console.groupEnd();
   }
 }
+
+// Descargar PDF desde el backend
+const btnDownloadPDF = document.getElementById('btnDownloadPDF');
+if (btnDownloadPDF) btnDownloadPDF.addEventListener('click', async () => {
+  const codigo = editor.value;
+  if (!codigo.trim()) return alert('No hay codigo para generar PDF.');
+  btnDownloadPDF.disabled = true;
+  btnDownloadPDF.textContent = 'Generando...';
+  try {
+    const res = await fetch(SHEET_URL + '?format=pdf', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: codigo });
+    if (!res.ok) throw new Error('Servidor respondio ' + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (document.querySelector('#sheetTitle')?.textContent || 'score') + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Error generando PDF: ' + err.message);
+  } finally {
+    btnDownloadPDF.disabled = false;
+    btnDownloadPDF.textContent = 'Descargar PDF';
+  }
+});
 
 // Descargar MusicXML desde el backend
 const btnDownload = document.getElementById('btnDownloadMusicXML');
@@ -707,6 +759,7 @@ async function playParsedMusic(parsed) {
   if (!window.AudioContext && !window.webkitAudioContext) return alert('Audio no soportado en este navegador.');
   if (!parsed || parsed.length === 0) return;
 
+  stopAudioPlayback();
   if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
   if (audioContext.state === 'suspended') await audioContext.resume();
 
@@ -743,6 +796,7 @@ async function playParsedMusic(parsed) {
   const masterWet = audioContext.createGain();
   masterDry.gain.setValueAtTime(0.9, now);
   masterWet.gain.setValueAtTime(0.25, now);
+  activeAudioNodes.push(masterDry, masterWet);
 
   // High-quality master: compressor -> soft clipper -> destination
   const masterComp = audioContext.createDynamicsCompressor();
@@ -751,9 +805,11 @@ async function playParsedMusic(parsed) {
   masterComp.ratio.setValueAtTime(6, now);
   masterComp.attack.setValueAtTime(0.003, now);
   masterComp.release.setValueAtTime(0.25, now);
+  activeAudioNodes.push(masterComp);
 
   // soft clipper via waveshaper
   const clip = audioContext.createWaveShaper();
+  activeAudioNodes.push(clip);
   function makeSoftClipper(amount = 2) {
     const samples = 44100;
     const curve = new Float32Array(samples);
@@ -793,6 +849,8 @@ async function playParsedMusic(parsed) {
     masterDry.connect(chorusDelay);
     chorusDelay.connect(audioContext.destination);
     chorusLFO.start(now);
+    activeAudioSources.push(chorusLFO);
+    activeAudioNodes.push(chorusDelay, chorusLFOGain);
     // stop later when playback ends
   }
 
@@ -842,6 +900,7 @@ async function playParsedMusic(parsed) {
 
           bufSrc.start(startTime);
           bufSrc.stop(startTime + duration + 0.05);
+          activeAudioSources.push(bufSrc);
           startTime += note.beats * secondsPerBeat;
           globalNoteIndex++;
           continue; // next note
@@ -883,6 +942,8 @@ async function playParsedMusic(parsed) {
         o2.start(startTime);
         o2.stop(startTime + duration + 0.05);
         noiseSrc.start(startTime);
+        activeAudioSources.push(o1, o2, noiseSrc);
+        activeAudioNodes.push(g2, noiseGain, pan, voiceGain);
       } else {
         const o = audioContext.createOscillator();
         o.type = 'sawtooth';
@@ -910,6 +971,8 @@ async function playParsedMusic(parsed) {
         o.start(startTime);
         o.stop(startTime + duration + 0.05);
         lfo.stop(startTime + duration + 0.05);
+        activeAudioSources.push(o, lfo);
+        activeAudioNodes.push(filt, pan, voiceGain);
       }
 
       voiceGain.connect(pan);
@@ -930,5 +993,11 @@ async function playParsedMusic(parsed) {
    btnPlayAudio.addEventListener('click', () => {
      if (lastParsedMusic.length === 0) return;
      playParsedMusic(lastParsedMusic);
+   });
+ }
+
+ if (btnStopAudio) {
+   btnStopAudio.addEventListener('click', () => {
+     stopAudioPlayback();
    });
  }

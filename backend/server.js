@@ -60,12 +60,12 @@ app.post('/sheet', (req, res) => {
   const format = (req.query.format || 'svg').toLowerCase();
   const proceso = spawn('python3', ['generate_sheet.py', format], { cwd: __dirname });
 
-  let salida = '';
-  let errorSalida = '';
+  let chunks = [];
+  let errorChunks = [];
   let responded = false;
 
-  proceso.stdout.on('data', (data) => { salida += data.toString(); });
-  proceso.stderr.on('data', (data) => { errorSalida += data.toString(); });
+  proceso.stdout.on('data', (data) => { chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data)); });
+  proceso.stderr.on('data', (data) => { errorChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data)); });
 
   const timeout = setTimeout(() => { proceso.kill('SIGKILL'); }, 5000);
 
@@ -73,16 +73,24 @@ app.post('/sheet', (req, res) => {
     clearTimeout(timeout);
     if (responded) return;
     responded = true;
+    const salida = Buffer.concat(chunks).toString('utf8');
+    const errorSalida = Buffer.concat(errorChunks).toString('utf8');
     if (code !== 0) return res.status(500).json({ error: 'Error generando partitura', stderr: errorSalida });
     // salida contiene el resultado; devolver con el Content-Type apropiado
     if (format === 'musicxml') {
       res.setHeader('Content-Type', 'application/xml');
+      res.send(salida);
     } else if (format === 'abc') {
       res.setHeader('Content-Type', 'text/plain');
+      res.send(salida);
+    } else if (format === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="partitura.pdf"');
+      res.end(Buffer.concat(chunks));
     } else {
       res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(salida);
     }
-    res.send(salida);
   });
 
   proceso.on('error', (err) => {

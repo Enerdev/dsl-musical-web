@@ -4,7 +4,7 @@ import re
 from xml.sax.saxutils import escape
 
 # Uso: generate_sheet.py [format]
-# format: svg (default) | abc | musicxml
+# format: svg (default) | abc | musicxml | pdf
 
 FORMAT = 'svg'
 if len(sys.argv) > 1:
@@ -110,6 +110,64 @@ def to_musicxml(titulo, autor, compas, measures):
     header.append('</score-partwise>')
     return '\n'.join(header)
 
+def escape_pdf(text):
+    text = str(text or '')
+    text = text.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+    return text.encode('latin-1', 'replace').decode('latin-1')
+
+
+def to_pdf(titulo, autor, compas, measures):
+    lines = []
+    lines.append(f"TITULO: {titulo or 'Untitled'}")
+    if autor:
+        lines.append(f"AUTOR: {autor}")
+    lines.append(f"COMPAS: {compas[0]}/{compas[1]}")
+    lines.append('')
+    for idx, meas in enumerate(measures, 1):
+        notas = ', '.join(f"{n}:{d}" for n, d, _ in meas) if meas else '(sin notas)'
+        lines.append(f"Compas {idx}: {notas}")
+
+    content_lines = []
+    y = 760
+    for line in lines:
+        content_lines.append(f"BT /F1 12 Tf 50 {y} Td ({escape_pdf(line)}) Tj ET")
+        y -= 14
+
+    content = '\n'.join(content_lines)
+    content_bytes = content.encode('latin-1', 'replace')
+
+    objects = []
+    def add_object(obj_bytes):
+        objects.append(obj_bytes)
+
+    add_object(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj")
+    add_object(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj")
+    add_object(b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj")
+    add_object(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj")
+    add_object(b"5 0 obj\n<< /Length 6 0 R >>\nstream\n" + content_bytes + b"\nendstream\nendobj")
+    add_object(b"6 0 obj\n" + str(len(content_bytes)).encode('ascii') + b"\nendobj")
+
+    pdf_parts = [b"%PDF-1.4\n"]
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(b"".join(pdf_parts)))
+        pdf_parts.append(obj + b"\n")
+
+    xref_offset = len(b"".join(pdf_parts))
+    xref_lines = [f"xref\n0 {len(objects) + 1}\n".encode('ascii')]
+    xref_lines.append(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        xref_lines.append(f"{offset:010d} 00000 n \n".encode('ascii'))
+
+    trailer = (
+        b"trailer\n"
+        + b"<< /Size " + str(len(objects) + 1).encode('ascii') + b" /Root 1 0 R >>\n"
+        + b"startxref\n" + str(xref_offset).encode('ascii') + b"\n%%EOF\n"
+    )
+
+    return b"".join(pdf_parts) + b"".join(xref_lines) + trailer
+
+
 def to_svg(titulo, autor, compas, measures):
     # Improved SVG: draw measures, spacing based on number of measures, labels
     measures_count = max(1, len(measures))
@@ -169,5 +227,7 @@ if FORMAT == 'abc':
     print(to_abc(titulo, autor, compas, notes_measures))
 elif FORMAT == 'musicxml':
     print(to_musicxml(titulo, autor, compas, notes_measures))
+elif FORMAT == 'pdf':
+    sys.stdout.buffer.write(to_pdf(titulo, autor, compas, notes_measures))
 else:
     print(to_svg(titulo, autor, compas, notes_measures))

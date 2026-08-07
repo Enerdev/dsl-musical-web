@@ -84,6 +84,7 @@ SOL:BLANCA |
           <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <div id="sheetTitle" style="font-family:Georgia,serif; font-size:15px; margin-bottom:8px; color:var(--ink);">Partitura</div>
             <button class="run-btn" id="btnPlayAudio" style="font-size:12px; padding:6px 10px;">Reproducir</button>
+            <button class="run-btn" id="btnStopAudio" style="font-size:12px; padding:6px 10px; background:#c0392b; color:#fff;">Callar</button>
             <label style="font-family:Courier New,monospace; font-size:12px; color:var(--ink-2);">Tempo</label>
             <input id="tempoRange" type="range" min="60" max="180" value="120" style="width:120px;">
             <span id="tempoValue" class="status" style="min-width:36px; text-align:center;">120</span>
@@ -102,6 +103,7 @@ SOL:BLANCA |
             <input id="chorusAmount" type="range" min="0" max="100" value="30" style="width:80px;">
             <label style="font-size:12px; color:var(--ink-2);">Swing</label>
             <input id="swingChk" type="checkbox">
+            <button class="run-btn" id="btnDownloadPDF" style="font-size:12px; padding:6px 10px;">Descargar PDF</button>
             <button class="run-btn" id="btnDownloadMusicXML" style="font-size:12px; padding:6px 10px;">Descargar MusicXML</button>
           </div>
           <div id="sheet" aria-live="polite"></div>
